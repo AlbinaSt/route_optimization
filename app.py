@@ -3,21 +3,13 @@ import osmnx as ox
 import networkx as nx
 import numpy as np
 import random
-from typing import List, Tuple, Dict
 import math
 import time
 
 app = Flask(__name__)
-
-# Настройки для Краснодара
 CITY_NAME = "Krasnodar, Russia"
 CENTER_COORDS = (45.03547, 38.97529)
-
-print("=" * 50)
-print("Загрузка дорожной сети Краснодара...")
-print("=" * 50)
-
-# Загружаем граф один раз при старте
+print("Загрузка дорожной сети Краснодара")
 try:
     G = ox.graph_from_place(CITY_NAME, network_type='drive', simplify=True)
     G = ox.add_edge_speeds(G)
@@ -25,7 +17,6 @@ try:
     print(f"✓ Граф загружен: {len(G.nodes)} узлов, {len(G.edges)} ребер")
 except Exception as e:
     print(f"Ошибка загрузки: {e}")
-    # Создаем тестовый граф для демонстрации
     G = nx.Graph()
     grid_size = 20
     step = 0.002
@@ -91,12 +82,9 @@ class RouteOptimizer:
                         lat2, lon2 = v_data['y'], v_data['x']
                         return ((lat1 - lat2) ** 2 + (lon1 - lon2) ** 2) ** 0.5 * 111000
                 return 0
-
             path = nx.astar_path(self.graph, start, end, heuristic=heuristic, weight='length')
-
             total_distance = 0
             total_time = 0
-
             for i in range(len(path) - 1):
                 u, v = path[i], path[i + 1]
                 edge_data = self.graph.get_edge_data(u, v)
@@ -108,7 +96,6 @@ class RouteOptimizer:
             result = (path, total_distance, total_time)
             self.path_cache[cache_key] = result
             return result
-
         except:
             if start in self.graph.nodes and end in self.graph.nodes:
                 dist = self.haversine_distance(
@@ -129,9 +116,7 @@ class RouteOptimizer:
         return 6371 * c
 
     def simple_genetic_algorithm(self, nodes, distance_matrix, time_matrix):
-        """Простой генетический алгоритм (без 2-opt и NSGA-II)"""
         n = len(nodes)
-
         def route_fitness(order):
             total_dist = 0
             total_time = 0
@@ -139,25 +124,19 @@ class RouteOptimizer:
                 i, j = order[k], order[k + 1]
                 total_dist += distance_matrix.get((i, j), float('inf'))
                 total_time += time_matrix.get((i, j), float('inf'))
-            # Только расстояние (классическая задача коммивояжера)
             return total_dist, total_time, total_dist
-
-        # Инициализация популяции
         population = []
         for _ in range(self.population_size):
             order = list(range(n))
             random.shuffle(order)
             population.append(order)
-
         best_solution = None
         best_fitness = float('inf')
         best_time = 0
         best_distance = 0
-
         for generation in range(self.generations):
             fitnesses = []
             solutions = []
-
             for order in population:
                 dist, time_val, fitness = route_fitness(order)
                 fitnesses.append(fitness)
@@ -173,36 +152,25 @@ class RouteOptimizer:
                     best_solution = solutions[-1]
                     best_time = time_val
                     best_distance = dist
-
-            # Селекция (рулетка)
             total_fitness = sum(fitnesses)
             if total_fitness > 0:
                 probabilities = [f / total_fitness for f in fitnesses]
             else:
                 probabilities = [1 / len(fitnesses)] * len(fitnesses)
-
             new_population = []
-
-            # Элитизм
             elite_idx = np.argmin(fitnesses)
             new_population.append(population[elite_idx])
 
             while len(new_population) < self.population_size:
-                # Выбор родителей
                 parent1 = self.roulette_select(population, probabilities)
                 parent2 = self.roulette_select(population, probabilities)
-
-                # Кроссовер
                 if random.random() < 0.8:
                     child = self.pmx_crossover(parent1, parent2)
                 else:
                     child = parent1.copy()
-
-                # Мутация
                 if random.random() < 0.1:
                     i, j = random.sample(range(n), 2)
                     child[i], child[j] = child[j], child[i]
-
                 new_population.append(child)
 
             population = new_population
@@ -210,7 +178,6 @@ class RouteOptimizer:
         return best_solution
 
     def roulette_select(self, population, probabilities):
-        """Рулеточная селекция для простого ГА"""
         r = random.random()
         cumsum = 0
         for i, prob in enumerate(probabilities):
@@ -220,7 +187,6 @@ class RouteOptimizer:
         return population[-1]
 
     def hybrid_nsga2_algorithm(self, nodes, distance_matrix, time_matrix):
-        """Гибридный алгоритм NSGA-II + 2-opt"""
         n = len(nodes)
 
         def route_fitness(order):
@@ -230,35 +196,23 @@ class RouteOptimizer:
                 i, j = order[k], order[k + 1]
                 total_dist += distance_matrix.get((i, j), float('inf'))
                 total_time += time_matrix.get((i, j), float('inf'))
-            # Взвешенная сумма (время важнее)
             fitness = total_time * 0.7 + total_dist * 0.3
             return total_dist, total_time, fitness
-
-        # Инициализация с жадным решением
         population = []
-
-        # Жадное решение
         greedy_order = self.greedy_initial_order(n, distance_matrix)
         population.append(greedy_order)
-
-        # Естественный порядок
         population.append(list(range(n)))
-
-        # Случайные решения
-        for _ in range(self.population_size - 2):
+        for i in range(self.population_size - 2):
             order = list(range(n))
             random.shuffle(order)
             population.append(order)
-
         best_solution = None
         best_fitness = float('inf')
         best_time = 0
         best_distance = 0
-
         for generation in range(self.generations):
             fitnesses = []
             solutions = []
-
             for order in population:
                 dist, time_val, fitness = route_fitness(order)
                 fitnesses.append(fitness)
@@ -268,53 +222,38 @@ class RouteOptimizer:
                     'time': time_val,
                     'fitness': fitness
                 })
-
                 if fitness < best_fitness:
                     best_fitness = fitness
                     best_solution = solutions[-1]
                     best_time = time_val
                     best_distance = dist
-
-            # Турнирная селекция
             tournament_size = 3
             selected = []
-            for _ in range(self.population_size):
+            for i in range(self.population_size):
                 candidates = random.sample(list(zip(population, fitnesses)), tournament_size)
                 best = min(candidates, key=lambda x: x[1])[0]
                 selected.append(best)
-
             new_population = []
-
-            # Элитизм
             elite_size = max(1, self.population_size // 5)
             elite_indices = np.argsort(fitnesses)[:elite_size]
             for idx in elite_indices:
                 new_population.append(population[idx])
-
             while len(new_population) < self.population_size:
                 parent1 = random.choice(selected)
                 parent2 = random.choice(selected)
                 child = self.pmx_crossover(parent1, parent2)
-
                 if random.random() < 0.1:
                     i, j = random.sample(range(n), 2)
                     child[i], child[j] = child[j], child[i]
-
                 new_population.append(child)
-
             population = new_population
-
-        # Применяем 2-opt для улучшения
         improved_order = self.two_opt_optimization(best_solution['order'], distance_matrix)
-
-        # Пересчитываем метрики для улучшенного маршрута
         total_dist = 0
         total_time = 0
         for k in range(len(improved_order) - 1):
             i, j = improved_order[k], improved_order[k + 1]
             total_dist += distance_matrix.get((i, j), 0)
             total_time += time_matrix.get((i, j), 0)
-
         return {
             'order': improved_order,
             'distance': total_dist,
@@ -323,43 +262,33 @@ class RouteOptimizer:
         }
 
     def greedy_initial_order(self, n, distance_matrix):
-        """Жадная эвристика для начальной популяции"""
         if n <= 1:
             return list(range(n))
-
         order = [0]
         remaining = set(range(1, n))
-
         while remaining:
             last = order[-1]
             nearest = min(remaining, key=lambda x: distance_matrix.get((last, x), float('inf')))
             order.append(nearest)
             remaining.remove(nearest)
-
         return order
 
     def pmx_crossover(self, parent1, parent2):
-        """Частично-отображенный кроссовер"""
         size = len(parent1)
         if size < 2:
             return parent1.copy()
-
         start, end = sorted(random.sample(range(size), 2))
-
         child = [-1] * size
         child[start:end + 1] = parent1[start:end + 1]
-
         for i in range(size):
             if child[i] == -1:
                 value = parent2[i]
                 while value in child:
                     value = parent2[parent1.index(value)]
                 child[i] = value
-
         return child
 
     def two_opt_optimization(self, order, distance_matrix):
-        """2-opt локальная оптимизация"""
         improved = True
         best_order = order.copy()
 
@@ -368,19 +297,15 @@ class RouteOptimizer:
             for i in range(len(route) - 1):
                 dist += distance_matrix.get((route[i], route[i + 1]), 0)
             return dist
-
         best_distance = route_distance(best_order)
         iterations = 0
-
         while improved and iterations < 50:
             improved = False
             iterations += 1
-
             for i in range(1, len(best_order) - 2):
                 for j in range(i + 1, len(best_order) - 1):
                     new_order = best_order[:i] + best_order[i:j + 1][::-1] + best_order[j + 1:]
                     new_distance = route_distance(new_order)
-
                     if new_distance < best_distance - 0.01:
                         best_order = new_order
                         best_distance = new_distance
@@ -388,17 +313,13 @@ class RouteOptimizer:
                         break
                 if improved:
                     break
-
         return best_order
 
     def calculate_full_route(self, points):
-        """Расчет маршрута с сравнением алгоритмов"""
         if len(points) < 2:
             return None
 
         nodes = [self.get_nearest_node(lat, lon) for lat, lon in points]
-
-        # Для двух точек просто строим прямой маршрут
         if len(points) == 2:
             path, distance, time_val = self.get_path_between_nodes(nodes[0], nodes[1])
             coordinates = []
@@ -419,12 +340,9 @@ class RouteOptimizer:
                     'distance': round(distance, 2)
                 }
             }
-
-        # Предварительный расчет матриц расстояний
-        print("Предварительный расчет маршрутов...")
+        print("Предварительный расчет маршрутов")
         distance_matrix = {}
         time_matrix = {}
-
         for i in range(len(nodes)):
             for j in range(i + 1, len(nodes)):
                 _, dist, time_val = self.get_path_between_nodes(nodes[i], nodes[j])
@@ -432,14 +350,11 @@ class RouteOptimizer:
                 distance_matrix[(j, i)] = dist
                 time_matrix[(i, j)] = time_val
                 time_matrix[(j, i)] = time_val
-
-        print("Запуск простого генетического алгоритма...")
+        print("Запуск простого генетического алгоритма")
         simple_result = self.simple_genetic_algorithm(nodes, distance_matrix, time_matrix)
 
-        print("Запуск гибридного алгоритма NSGA-II + 2-opt...")
+        print("Запуск гибридного алгоритма NSGA-II + 2-opt")
         hybrid_result = self.hybrid_nsga2_algorithm(nodes, distance_matrix, time_matrix)
-
-        # Строим финальный маршрут (используем гибридный для отображения на карте)
         full_path = []
         for k in range(len(hybrid_result['order']) - 1):
             i, j = hybrid_result['order'][k], hybrid_result['order'][k + 1]
@@ -448,13 +363,11 @@ class RouteOptimizer:
                 full_path.extend(path)
             else:
                 full_path.extend(path[1:])
-
         coordinates = []
         for node in full_path:
             if node in self.graph.nodes:
                 coords = (self.graph.nodes[node]['y'], self.graph.nodes[node]['x'])
                 coordinates.append(coords)
-
         return {
             'duration': round(hybrid_result['time'], 2),
             'distance': round(hybrid_result['distance'], 2),
@@ -473,14 +386,11 @@ class RouteOptimizer:
             }
         }
 
-
 optimizer = RouteOptimizer(G)
-
 
 @app.route('/')
 def index():
     return render_template('index.html')
-
 
 @app.route('/calculate', methods=['POST'])
 def calculate():
@@ -488,28 +398,20 @@ def calculate():
         start_time = time.time()
         data = request.json
         points = data.get('points', [])
-
         if len(points) < 2:
             return jsonify({'error': 'Выберите минимум 2 точки'}), 400
-
-        print(f"\n{'=' * 50}")
         print(f"Расчет маршрута для {len(points)} точек")
-
         result = optimizer.calculate_full_route(points)
-
         if result and len(result['coordinates']) > 0:
             elapsed = time.time() - start_time
             print(f"Время расчета: {elapsed:.2f} секунд")
             print(f"Простой ГА: {result['simple_ga']['time']}ч, {result['simple_ga']['distance']}км")
             print(f"Гибридный: {result['hybrid']['time']}ч, {result['hybrid']['distance']}км")
-
-            # Вычисляем улучшение
             time_improvement = ((result['simple_ga']['time'] - result['hybrid']['time']) / result['simple_ga'][
                 'time']) * 100
             dist_improvement = ((result['simple_ga']['distance'] - result['hybrid']['distance']) / result['simple_ga'][
                 'distance']) * 100
             print(f"Улучшение: время на {time_improvement:.1f}%, расстояние на {dist_improvement:.1f}%")
-
             return jsonify({
                 'success': True,
                 'route': result['coordinates'],
@@ -521,13 +423,11 @@ def calculate():
             })
         else:
             return jsonify({'error': 'Не удалось построить маршрут'}), 500
-
     except Exception as e:
         print(f"Ошибка: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
