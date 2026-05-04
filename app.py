@@ -3,7 +3,6 @@ import osmnx as ox
 import networkx as nx
 import numpy as np
 import random
-from typing import List, Tuple, Dict
 import math
 import time
 
@@ -22,12 +21,14 @@ except Exception as e:
     grid_size = 20
     step = 0.002
     base_lat, base_lon = 45.03547, 38.97529
+
     for i in range(grid_size):
         for j in range(grid_size):
             node_id = i * grid_size + j
             lat = base_lat + (i - grid_size / 2) * step
             lon = base_lon + (j - grid_size / 2) * step
             G.add_node(node_id, y=lat, x=lon)
+
     for i in range(grid_size):
         for j in range(grid_size):
             node_id = i * grid_size + j
@@ -44,12 +45,14 @@ except Exception as e:
                 time_val = dist / 1000 / (speed / 3.6)
                 G.add_edge(node_id, neighbor, length=dist, speed_kph=speed, travel_time=time_val)
 
+
 class RouteOptimizer:
     def __init__(self, graph):
         self.graph = graph
         self.population_size = 20
         self.generations = 15
         self.path_cache = {}
+
     def get_nearest_node(self, lat: float, lon: float) -> int:
         try:
             return ox.distance.nearest_nodes(self.graph, lon, lat)
@@ -68,6 +71,7 @@ class RouteOptimizer:
         cache_key = (start, end)
         if cache_key in self.path_cache:
             return self.path_cache[cache_key]
+
         try:
             def heuristic(u, v):
                 if u in self.graph.nodes and v in self.graph.nodes:
@@ -88,6 +92,7 @@ class RouteOptimizer:
                     edge = list(edge_data.values())[0] if isinstance(edge_data, dict) else edge_data
                     total_distance += edge.get('length', 0) / 1000
                     total_time += edge.get('travel_time', 0) / 3600
+
             result = (path, total_distance, total_time)
             self.path_cache[cache_key] = result
             return result
@@ -111,9 +116,7 @@ class RouteOptimizer:
         return 6371 * c
 
     def simple_genetic_algorithm(self, nodes, distance_matrix, time_matrix):
-        """Простой генетический алгоритм (без 2-opt и NSGA-II)"""
         n = len(nodes)
-
         def route_fitness(order):
             total_dist = 0
             total_time = 0
@@ -122,7 +125,6 @@ class RouteOptimizer:
                 total_dist += distance_matrix.get((i, j), float('inf'))
                 total_time += time_matrix.get((i, j), float('inf'))
             return total_dist, total_time, total_dist
-
         population = []
         for _ in range(self.population_size):
             order = list(range(n))
@@ -144,6 +146,7 @@ class RouteOptimizer:
                     'time': time_val,
                     'fitness': fitness
                 })
+
                 if fitness < best_fitness:
                     best_fitness = fitness
                     best_solution = solutions[-1]
@@ -169,7 +172,9 @@ class RouteOptimizer:
                     i, j = random.sample(range(n), 2)
                     child[i], child[j] = child[j], child[i]
                 new_population.append(child)
+
             population = new_population
+
         return best_solution
 
     def roulette_select(self, population, probabilities):
@@ -183,6 +188,7 @@ class RouteOptimizer:
 
     def hybrid_nsga2_algorithm(self, nodes, distance_matrix, time_matrix):
         n = len(nodes)
+
         def route_fitness(order):
             total_dist = 0
             total_time = 0
@@ -196,7 +202,7 @@ class RouteOptimizer:
         greedy_order = self.greedy_initial_order(n, distance_matrix)
         population.append(greedy_order)
         population.append(list(range(n)))
-        for _ in range(self.population_size - 2):
+        for i in range(self.population_size - 2):
             order = list(range(n))
             random.shuffle(order)
             population.append(order)
@@ -223,7 +229,7 @@ class RouteOptimizer:
                     best_distance = dist
             tournament_size = 3
             selected = []
-            for _ in range(self.population_size):
+            for i in range(self.population_size):
                 candidates = random.sample(list(zip(population, fitnesses)), tournament_size)
                 best = min(candidates, key=lambda x: x[1])[0]
                 selected.append(best)
@@ -254,6 +260,7 @@ class RouteOptimizer:
             'time': total_time,
             'fitness': total_time * 0.7 + total_dist * 0.3
         }
+
     def greedy_initial_order(self, n, distance_matrix):
         if n <= 1:
             return list(range(n))
@@ -265,6 +272,7 @@ class RouteOptimizer:
             order.append(nearest)
             remaining.remove(nearest)
         return order
+
     def pmx_crossover(self, parent1, parent2):
         size = len(parent1)
         if size < 2:
@@ -283,6 +291,7 @@ class RouteOptimizer:
     def two_opt_optimization(self, order, distance_matrix):
         improved = True
         best_order = order.copy()
+
         def route_distance(route):
             dist = 0
             for i in range(len(route) - 1):
@@ -309,6 +318,7 @@ class RouteOptimizer:
     def calculate_full_route(self, points):
         if len(points) < 2:
             return None
+
         nodes = [self.get_nearest_node(lat, lon) for lat, lon in points]
         if len(points) == 2:
             path, distance, time_val = self.get_path_between_nodes(nodes[0], nodes[1])
@@ -342,6 +352,7 @@ class RouteOptimizer:
                 time_matrix[(j, i)] = time_val
         print("Запуск простого генетического алгоритма")
         simple_result = self.simple_genetic_algorithm(nodes, distance_matrix, time_matrix)
+
         print("Запуск гибридного алгоритма NSGA-II + 2-opt")
         hybrid_result = self.hybrid_nsga2_algorithm(nodes, distance_matrix, time_matrix)
         full_path = []
@@ -374,6 +385,7 @@ class RouteOptimizer:
                                                                                                 'time'] > 0 else 0
             }
         }
+
 optimizer = RouteOptimizer(G)
 
 @app.route('/')
@@ -388,7 +400,6 @@ def calculate():
         points = data.get('points', [])
         if len(points) < 2:
             return jsonify({'error': 'Выберите минимум 2 точки'}), 400
-        print(f"\n{'=' * 50}")
         print(f"Расчет маршрута для {len(points)} точек")
         result = optimizer.calculate_full_route(points)
         if result and len(result['coordinates']) > 0:
@@ -412,7 +423,6 @@ def calculate():
             })
         else:
             return jsonify({'error': 'Не удалось построить маршрут'}), 500
-
     except Exception as e:
         print(f"Ошибка: {e}")
         import traceback
