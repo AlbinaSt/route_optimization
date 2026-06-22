@@ -174,7 +174,6 @@
     </style>
 </head>
 <body>
-<<<<<<< HEAD
 <div class="container">
     <div class="sidebar">
         <div class="header">
@@ -199,39 +198,6 @@
                         <div class="metric">
                             <span>Время:</span>
                             <span class="metric-value" id="simple-time">0</span>
-=======
-    <div class="container">
-        <div class="sidebar">
-            <div class="header">
-                <h1>Оптимизация маршрутов</h1>
-            </div>
-            <div class="controls">
-                <div class="points-list">
-                    <h3>Точки (<span id="points-count">0</span>)</h3>
-                    <ul id="points-list">
-                        <li class="empty">Нет точек</li>
-                    </ul>
-                </div>
-                <div id="comparison" style="display: none;">
-                    <div class="comparison">
-                        <div class="result-card simple">
-                            <h4>Простой ГА</h4>
-                            <div class="metric">
-                                <span>Время:</span>
-                                <span class="metric-value" id="simple-time">0</span>
-                                <span>ч</span>
-                            </div>
-                            <div class="metric">
-                                <span>Расстояние:</span>
-                                <span class="metric-value" id="simple-distance">0</span>
-                                <span>км</span>
-                            </div>
-                            <div class="metric">
-                                <span>Скорость:</span>
-                                <span class="metric-value" id="simple-speed">0</span>
-                                <span>км/ч</span>
-                            </div>
->>>>>>> 6306e2a051aa4e5271d135907cbb05bb3657e7fe
                         </div>
                         <div class="metric">
                             <span>Расстояние:</span>
@@ -258,7 +224,6 @@
                         </div>
                     </div>
                 </div>
-<<<<<<< HEAD
             </div>
             <button
                     id="calculate-btn"
@@ -280,22 +245,9 @@
                     <li>Нажмите "Найти маршрут"</li>
                     <li>Дождитесь завершения</li>
                 </ol>
-=======
-                <button id="calculate-btn" class="btn btn-primary" disabled>Найти маршрут</button>
-                <button id="clear-btn" class="btn btn-secondary">Очистить</button>
-                <div class="info">
-                    <h4>Информация:</h4>
-                    <ol>
-                        <li>1. Выберите 2-6 точек на карте</li>
-                        <li>2. Нажмите кнопку "Найти маршрут"</li>
-                        <li>3. Дождитесь выполнения алгоритмов</li>
-                    </ol>
-                </div>
->>>>>>> 6306e2a051aa4e5271d135907cbb05bb3657e7fe
             </div>
         </div>
     </div>
-<<<<<<< HEAD
     <div id="map" class="map"></div>
 </div>
 <div id="loading" class="loading" style="display:none;">
@@ -361,52 +313,10 @@
                 point.lat = pos.lat;
                 point.lng = pos.lng;
             }
-=======
-    <div id="loading" class="loading" style="display: none;">
-        <div class="spinner"></div>
-        <p>Выполнение алгоритмов</p>
-    </div>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        const map = L.map('map', {
-            attributionControl: false,
-            zoomControl: true
-        }).setView([45.03547, 38.97529], 13);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19,
-            subdomains: 'abcd'
-        }).addTo(map);
-        let selectedPoints = [];
-        let currentRoute = null;
-        function updatePointsList() {
-            const listEl = document.getElementById('points-list');
-            const pointsCount = document.getElementById('points-count');
-            const calculateBtn = document.getElementById('calculate-btn');
-            pointsCount.textContent = selectedPoints.length;
-            if (selectedPoints.length === 0) {
-                listEl.innerHTML = '<li class="empty">Нет точек</li>';
-                calculateBtn.disabled = true;
-                document.getElementById('metrics').style.display = 'none';
-                document.getElementById('comparison').style.display = 'none';
-            } else {
-                listEl.innerHTML = selectedPoints.map((point, idx) => `
-                    <li>
-                        ${idx + 1}. ${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}
-                        <span class="delete-point" onclick="removePoint(${idx})">✖</span>
-                    </li>
-                `).join('');
-                calculateBtn.disabled = false;
-            }
-        }
-        window.removePoint = function(idx) {
-            if (selectedPoints[idx].marker) map.removeLayer(selectedPoints[idx].marker);
-            selectedPoints.splice(idx, 1);
->>>>>>> 6306e2a051aa4e5271d135907cbb05bb3657e7fe
             if (currentRoute) {
                 map.removeLayer(currentRoute);
                 currentRoute = null;
             }
-<<<<<<< HEAD
             document.getElementById('comparison').style.display = 'none';
             updatePointsList();
         });
@@ -514,87 +424,6 @@
                 `Pareto-front: ${data.pareto_front.length} решений`,
                 'success'
             );
-=======
-            updatePointsList();
-        };
-        function addPoint(lat, lng) {
-            const marker = L.marker([lat, lng], { draggable: true }).addTo(map);
-            marker.on('dragend', () => {
-                const pos = marker.getLatLng();
-                const point = selectedPoints.find(p => p.marker === marker);
-                if (point) {
-                    point.lat = pos.lat;
-                    point.lng = pos.lng;
-                    if (currentRoute) {
-                        map.removeLayer(currentRoute);
-                        currentRoute = null;
-                        document.getElementById('metrics').style.display = 'none';
-                        document.getElementById('comparison').style.display = 'none';
-                    }
-                }
-            });
-            selectedPoints.push({ lat, lng, marker });
-            updatePointsList();
-        }
-        map.on('click', (e) => {
-            if (selectedPoints.length < 6) addPoint(e.latlng.lat, e.latlng.lng);
-            else showNotification('Максимум 6 точек', 'error');
-        });
-        document.getElementById('clear-btn').onclick = () => {
-            selectedPoints.forEach(p => map.removeLayer(p.marker));
-            selectedPoints = [];
-            if (currentRoute) map.removeLayer(currentRoute);
-            currentRoute = null;
-            updatePointsList();
-            document.getElementById('metrics').style.display = 'none';
-            document.getElementById('comparison').style.display = 'none';
-        };
-        document.getElementById('calculate-btn').onclick = async () => {
-            if (selectedPoints.length < 2) {
-                showNotification('Выберите минимум 2 точки', 'error');
-                return;
-            }
-            document.getElementById('loading').style.display = 'flex';
-            try {
-                const points = selectedPoints.map(p => [p.lat, p.lng]);
-                const response = await fetch('/calculate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ points: points })
-                });
-                const data = await response.json();
-                if (data.success && data.route && data.route.length > 0) {
-                    if (currentRoute) map.removeLayer(currentRoute);
-                    currentRoute = L.polyline(data.route, {
-                        color: '#667eea',
-                        weight: 4,
-                        opacity: 0.8
-                    }).addTo(map);
-                    map.fitBounds(currentRoute.getBounds(), { padding: [50, 50] });
-                    document.getElementById('simple-time').textContent = data.simple_ga.time;
-                    document.getElementById('simple-distance').textContent = data.simple_ga.distance;
-                    document.getElementById('simple-speed').textContent = data.simple_ga.avg_speed;
-                    document.getElementById('hybrid-time').textContent = data.hybrid.time;
-                    document.getElementById('hybrid-distance').textContent = data.hybrid.distance;
-                    document.getElementById('hybrid-speed').textContent = data.hybrid.avg_speed;
-                    document.getElementById('comparison').style.display = 'block';
-                } else {
-                    showNotification(data.error || 'Ошибка', 'error');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                showNotification('Ошибка соединения', 'error');
-            } finally {
-                document.getElementById('loading').style.display = 'none';
-            }
-        };
-        function showNotification(msg, type) {
-            const div = document.createElement('div');
-            div.className = `notification notification-${type}`;
-            div.textContent = msg;
-            document.body.appendChild(div);
-            setTimeout(() => div.remove(), 3000);
->>>>>>> 6306e2a051aa4e5271d135907cbb05bb3657e7fe
         }
         catch (error) {
             console.error(error);
